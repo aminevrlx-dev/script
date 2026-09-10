@@ -1,20 +1,16 @@
---========================================================--
---              AREA TWEEN - COMPACT UI
---========================================================--
+--// AREA TELEPORT UI - LOCAL SCRIPT
+--// Coloque em StarterPlayerScripts ou execute como LocalScript
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
 
---========================================================--
+--==================================================
 -- CONFIG
---========================================================--
-
-local MIN_SPEED = 50
-local MAX_SPEED = 1000
-local tweenSpeed = 250
+--==================================================
 
 local Areas = {
     ["Forest"] = Vector3.new(545.22, 71.14, -365.81),
@@ -29,10 +25,11 @@ local Areas = {
     ["Cherry Blossom"] = Vector3.new(4000.78, 71.14, -410.80),
     ["Titan Temple"] = Vector3.new(4770.83, 71.14, -315.31),
 
-    ["Back"] = Vector3.new(545.22, 71.14, -365.81)
+    -- Back = Forest
+    ["Back"] = Vector3.new(545.22, 71.14, -365.81),
 }
 
-local AreaOrder = {
+local AreaNames = {
     "Forest",
     "Lake",
     "Desert",
@@ -43,175 +40,203 @@ local AreaOrder = {
     "Prehistoric",
     "Cosmic",
     "Cherry Blossom",
-    "Titan Temple"
+    "Titan Temple",
+    "Back",
 }
 
-local selectedArea = "Forest"
-local currentTween = nil
-local tweening = false
+local MIN_SPEED = 50
+local MAX_SPEED = 1000
 
---========================================================--
--- COLORS
---========================================================--
+local Speed = 250
+local SelectedArea = "Forest"
 
-local CYAN = Color3.fromRGB(0, 220, 255)
-local BLACK = Color3.fromRGB(8, 8, 10)
-local DARK = Color3.fromRGB(18, 18, 21)
-local DARKER = Color3.fromRGB(28, 28, 32)
+local Moving = false
+local MoveConnection = nil
+local CurrentTween = nil
 
-local WHITE = Color3.fromRGB(245, 245, 245)
-local GREY = Color3.fromRGB(155, 155, 160)
+--==================================================
+-- CHARACTER
+--==================================================
 
-local GREEN = Color3.fromRGB(25, 190, 90)
-local RED = Color3.fromRGB(210, 45, 55)
+local Character
+local Humanoid
+local Root
 
---========================================================--
--- HELPERS
---========================================================--
+local function GetCharacter()
+    Character = Player.Character or Player.CharacterAdded:Wait()
 
-local function corner(object, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius)
-    c.Parent = object
-    return c
+    Humanoid = Character:WaitForChild("Humanoid")
+    Root = Character:WaitForChild("HumanoidRootPart")
+
+    return Character, Humanoid, Root
 end
 
-local function stroke(object, color, thickness, transparency)
-    local s = Instance.new("UIStroke")
-    s.Color = color
-    s.Thickness = thickness or 1
-    s.Transparency = transparency or 0
-    s.Parent = object
-    return s
-end
+GetCharacter()
 
---========================================================--
--- SCREEN GUI
---========================================================--
+Player.CharacterAdded:Connect(function()
+    Moving = false
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AreaTweenUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+    if MoveConnection then
+        MoveConnection:Disconnect()
+        MoveConnection = nil
+    end
 
---========================================================--
+    if CurrentTween then
+        CurrentTween:Cancel()
+        CurrentTween = nil
+    end
+
+    task.wait(0.5)
+    GetCharacter()
+end)
+
+--==================================================
+-- GUI
+--==================================================
+
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "AreaTweenUI"
+Gui.ResetOnSpawn = false
+Gui.IgnoreGuiInset = true
+Gui.Parent = Player:WaitForChild("PlayerGui")
+
+--==================================================
 -- MAIN
---========================================================--
+--==================================================
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 285, 0, 335)
-Main.Position = UDim2.new(0.5, -142, 0.5, -167)
-Main.BackgroundColor3 = BLACK
-Main.BackgroundTransparency = 0.10
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 245, 0, 235)
+Main.Position = UDim2.new(0.5, -122, 0.5, -117)
+Main.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
+Main.BackgroundTransparency = 0.08
 Main.BorderSizePixel = 0
-Main.Parent = ScreenGui
+Main.Parent = Gui
 
-corner(Main, 10)
-stroke(Main, CYAN, 1.5, 0.1)
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = Main
 
---========================================================--
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(0, 220, 255)
+MainStroke.Thickness = 1.5
+MainStroke.Parent = Main
+
+--==================================================
 -- TITLE BAR
---========================================================--
+--==================================================
 
 local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 42)
-TitleBar.BackgroundTransparency = 1
+TitleBar.Size = UDim2.new(1, 0, 0, 32)
+TitleBar.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
+TitleBar.BorderSizePixel = 0
 TitleBar.Parent = Main
 
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = TitleBar
+
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -50, 1, 0)
-Title.Position = UDim2.new(0, 12, 0, 0)
+Title.Size = UDim2.new(1, -45, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
 Title.BackgroundTransparency = 1
 Title.Text = "AREA TELEPORT"
-Title.TextColor3 = CYAN
-Title.TextSize = 16
+Title.TextColor3 = Color3.fromRGB(0, 220, 255)
+Title.TextSize = 13
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = TitleBar
 
+--==================================================
 -- MINIMIZE
+--==================================================
 
 local Minimize = Instance.new("TextButton")
-Minimize.Size = UDim2.new(0, 30, 0, 30)
-Minimize.Position = UDim2.new(1, -36, 0, 6)
-Minimize.BackgroundColor3 = DARK
+Minimize.Name = "Minimize"
+Minimize.Size = UDim2.new(0, 30, 0, 25)
+Minimize.Position = UDim2.new(1, -34, 0, 4)
+Minimize.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
 Minimize.Text = "−"
-Minimize.TextColor3 = CYAN
-Minimize.TextSize = 19
+Minimize.TextColor3 = Color3.fromRGB(0, 220, 255)
+Minimize.TextSize = 18
 Minimize.Font = Enum.Font.GothamBold
 Minimize.BorderSizePixel = 0
 Minimize.Parent = TitleBar
 
-corner(Minimize, 7)
-stroke(Minimize, CYAN, 1, 0.25)
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 6)
+MinCorner.Parent = Minimize
 
-local Line = Instance.new("Frame")
-Line.Size = UDim2.new(1, -20, 0, 1)
-Line.Position = UDim2.new(0, 10, 1, -1)
-Line.BackgroundColor3 = CYAN
-Line.BackgroundTransparency = 0.5
-Line.BorderSizePixel = 0
-Line.Parent = TitleBar
-
---========================================================--
+--==================================================
 -- CONTENT
---========================================================--
+--==================================================
 
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -20, 1, -52)
-Content.Position = UDim2.new(0, 10, 0, 48)
+Content.Size = UDim2.new(1, -16, 1, -40)
+Content.Position = UDim2.new(0, 8, 0, 36)
 Content.BackgroundTransparency = 1
 Content.Parent = Main
 
---========================================================--
--- SELECT AREA
---========================================================--
+--==================================================
+-- AREA LABEL
+--==================================================
 
-local SelectLabel = Instance.new("TextLabel")
-SelectLabel.Size = UDim2.new(1, 0, 0, 18)
-SelectLabel.BackgroundTransparency = 1
-SelectLabel.Text = "SELECT AREA"
-SelectLabel.TextColor3 = CYAN
-SelectLabel.TextSize = 11
-SelectLabel.Font = Enum.Font.GothamBold
-SelectLabel.TextXAlignment = Enum.TextXAlignment.Left
-SelectLabel.Parent = Content
+local AreaLabel = Instance.new("TextLabel")
+AreaLabel.Size = UDim2.new(1, 0, 0, 18)
+AreaLabel.BackgroundTransparency = 1
+AreaLabel.Text = "ÁREA"
+AreaLabel.TextColor3 = Color3.fromRGB(180, 180, 185)
+AreaLabel.TextSize = 10
+AreaLabel.Font = Enum.Font.GothamBold
+AreaLabel.TextXAlignment = Enum.TextXAlignment.Left
+AreaLabel.Parent = Content
 
-local SelectButton = Instance.new("TextButton")
-SelectButton.Size = UDim2.new(1, 0, 0, 38)
-SelectButton.Position = UDim2.new(0, 0, 0, 21)
-SelectButton.BackgroundColor3 = DARK
-SelectButton.Text = "Forest  ▼"
-SelectButton.TextColor3 = WHITE
-SelectButton.TextSize = 13
-SelectButton.Font = Enum.Font.GothamMedium
-SelectButton.TextXAlignment = Enum.TextXAlignment.Left
-SelectButton.BorderSizePixel = 0
-SelectButton.Parent = Content
+--==================================================
+-- AREA BUTTON
+--==================================================
 
-local SelectPadding = Instance.new("UIPadding")
-SelectPadding.PaddingLeft = UDim.new(0, 11)
-SelectPadding.Parent = SelectButton
+local AreaButton = Instance.new("TextButton")
+AreaButton.Size = UDim2.new(1, 0, 0, 32)
+AreaButton.Position = UDim2.new(0, 0, 0, 20)
+AreaButton.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+AreaButton.Text = SelectedArea .. "  ▼"
+AreaButton.TextColor3 = Color3.fromRGB(235, 235, 240)
+AreaButton.TextSize = 12
+AreaButton.Font = Enum.Font.GothamSemibold
+AreaButton.BorderSizePixel = 0
+AreaButton.Parent = Content
 
-corner(SelectButton, 7)
-stroke(SelectButton, CYAN, 1, 0.3)
+local AreaCorner = Instance.new("UICorner")
+AreaCorner.CornerRadius = UDim.new(0, 7)
+AreaCorner.Parent = AreaButton
 
---========================================================--
+local AreaStroke = Instance.new("UIStroke")
+AreaStroke.Color = Color3.fromRGB(0, 220, 255)
+AreaStroke.Thickness = 1
+AreaStroke.Parent = AreaButton
+
+--==================================================
 -- DROPDOWN
---========================================================--
+--==================================================
 
 local Dropdown = Instance.new("Frame")
-Dropdown.Size = UDim2.new(1, 0, 0, 155)
-Dropdown.Position = UDim2.new(0, 0, 0, 62)
-Dropdown.BackgroundColor3 = DARK
+Dropdown.Name = "Dropdown"
+Dropdown.Size = UDim2.new(1, 0, 0, 145)
+Dropdown.Position = UDim2.new(0, 0, 0, 55)
+Dropdown.BackgroundColor3 = Color3.fromRGB(10, 10, 13)
 Dropdown.BorderSizePixel = 0
 Dropdown.Visible = false
-Dropdown.ZIndex = 50
+Dropdown.ZIndex = 20
 Dropdown.Parent = Content
 
-corner(Dropdown, 7)
-stroke(Dropdown, CYAN, 1, 0.1)
+local DropCorner = Instance.new("UICorner")
+DropCorner.CornerRadius = UDim.new(0, 7)
+DropCorner.Parent = Dropdown
+
+local DropStroke = Instance.new("UIStroke")
+DropStroke.Color = Color3.fromRGB(0, 220, 255)
+DropStroke.Thickness = 1
+DropStroke.Parent = Dropdown
 
 local Scroll = Instance.new("ScrollingFrame")
 Scroll.Size = UDim2.new(1, -6, 1, -6)
@@ -219,204 +244,287 @@ Scroll.Position = UDim2.new(0, 3, 0, 3)
 Scroll.BackgroundTransparency = 1
 Scroll.BorderSizePixel = 0
 Scroll.ScrollBarThickness = 3
-Scroll.ScrollBarImageColor3 = CYAN
-Scroll.ZIndex = 51
+Scroll.ScrollBarImageColor3 = Color3.fromRGB(0, 220, 255)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, #AreaNames * 30)
+Scroll.ZIndex = 21
 Scroll.Parent = Dropdown
 
-local List = Instance.new("UIListLayout")
-List.Padding = UDim.new(0, 3)
-List.Parent = Scroll
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 2)
+Layout.Parent = Scroll
 
-for i, area in ipairs(AreaOrder) do
+for _, areaName in ipairs(AreaNames) do
 
     local Button = Instance.new("TextButton")
     Button.Size = UDim2.new(1, -4, 0, 27)
-    Button.BackgroundColor3 = DARKER
-    Button.Text = area
-    Button.TextColor3 = WHITE
-    Button.TextSize = 12
-    Button.Font = Enum.Font.GothamMedium
+    Button.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
     Button.BorderSizePixel = 0
-    Button.LayoutOrder = i
-    Button.ZIndex = 52
+    Button.Text = areaName
+    Button.TextColor3 = Color3.fromRGB(230, 230, 235)
+    Button.TextSize = 11
+    Button.Font = Enum.Font.Gotham
+    Button.ZIndex = 22
     Button.Parent = Scroll
 
-    corner(Button, 5)
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 5)
+    Corner.Parent = Button
 
     Button.MouseButton1Click:Connect(function()
-        selectedArea = area
-        SelectButton.Text = area .. "  ▼"
-        SelectLabel.Text = "SELECT AREA  •  " .. area
+
+        SelectedArea = areaName
+        AreaButton.Text = areaName .. "  ▼"
+
         Dropdown.Visible = false
+
+        Status.Text = "Selecionado: " .. areaName
+        Status.TextColor3 = Color3.fromRGB(0, 220, 255)
+
     end)
 end
 
-List:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    Scroll.CanvasSize = UDim2.new(
-        0,
-        0,
-        0,
-        List.AbsoluteContentSize.Y + 8
-    )
+AreaButton.MouseButton1Click:Connect(function()
+    Dropdown.Visible = not Dropdown.Visible
 end)
 
---========================================================--
+--==================================================
 -- SPEED
---========================================================--
+--==================================================
 
 local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Size = UDim2.new(1, 0, 0, 18)
-SpeedLabel.Position = UDim2.new(0, 0, 0, 70)
+SpeedLabel.Size = UDim2.new(0.45, 0, 0, 18)
+SpeedLabel.Position = UDim2.new(0, 0, 0, 62)
 SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "TWEEN SPEED"
-SpeedLabel.TextColor3 = CYAN
-SpeedLabel.TextSize = 11
+SpeedLabel.Text = "VELOCIDADE"
+SpeedLabel.TextColor3 = Color3.fromRGB(180, 180, 185)
+SpeedLabel.TextSize = 10
 SpeedLabel.Font = Enum.Font.GothamBold
 SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+SpeedLabel.ZIndex = 2
 SpeedLabel.Parent = Content
 
--- SPEED BOX
-
 local SpeedBox = Instance.new("TextBox")
-SpeedBox.Size = UDim2.new(0, 85, 0, 32)
-SpeedBox.Position = UDim2.new(1, -85, 0, 67)
-SpeedBox.BackgroundColor3 = DARK
-SpeedBox.Text = tostring(tweenSpeed)
-SpeedBox.PlaceholderText = "Speed"
-SpeedBox.TextColor3 = WHITE
-SpeedBox.PlaceholderColor3 = GREY
-SpeedBox.TextSize = 13
-SpeedBox.Font = Enum.Font.GothamMedium
+SpeedBox.Size = UDim2.new(0, 65, 0, 24)
+SpeedBox.Position = UDim2.new(1, -65, 0, 59)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+SpeedBox.Text = tostring(Speed)
+SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedBox.TextSize = 11
+SpeedBox.Font = Enum.Font.GothamBold
 SpeedBox.ClearTextOnFocus = false
 SpeedBox.BorderSizePixel = 0
+SpeedBox.ZIndex = 2
 SpeedBox.Parent = Content
 
-corner(SpeedBox, 6)
-stroke(SpeedBox, CYAN, 1, 0.25)
+local SpeedBoxCorner = Instance.new("UICorner")
+SpeedBoxCorner.CornerRadius = UDim.new(0, 6)
+SpeedBoxCorner.Parent = SpeedBox
 
---========================================================--
+local SpeedBoxStroke = Instance.new("UIStroke")
+SpeedBoxStroke.Color = Color3.fromRGB(0, 220, 255)
+SpeedBoxStroke.Thickness = 1
+SpeedBoxStroke.Parent = SpeedBox
+
+--==================================================
 -- SLIDER
---========================================================--
+--==================================================
 
-local SliderBack = Instance.new("Frame")
-SliderBack.Size = UDim2.new(1, -98, 0, 6)
-SliderBack.Position = UDim2.new(0, 0, 0, 80)
-SliderBack.BackgroundColor3 = DARKER
-SliderBack.BorderSizePixel = 0
-SliderBack.Parent = Content
+local Slider = Instance.new("Frame")
+Slider.Size = UDim2.new(1, 0, 0, 5)
+Slider.Position = UDim2.new(0, 0, 0, 94)
+Slider.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+Slider.BorderSizePixel = 0
+Slider.ZIndex = 2
+Slider.Parent = Content
 
-corner(SliderBack, 5)
+local SliderCorner = Instance.new("UICorner")
+SliderCorner.CornerRadius = UDim.new(1, 0)
+SliderCorner.Parent = Slider
 
 local SliderFill = Instance.new("Frame")
 SliderFill.Size = UDim2.new(
-    (tweenSpeed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED),
+    (Speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED),
     0,
     1,
     0
 )
-SliderFill.BackgroundColor3 = CYAN
+SliderFill.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
 SliderFill.BorderSizePixel = 0
-SliderFill.Parent = SliderBack
+SliderFill.ZIndex = 3
+SliderFill.Parent = Slider
 
-corner(SliderFill, 5)
+local FillCorner = Instance.new("UICorner")
+FillCorner.CornerRadius = UDim.new(1, 0)
+FillCorner.Parent = SliderFill
 
-local SliderButton = Instance.new("TextButton")
-SliderButton.Size = UDim2.new(0, 14, 0, 14)
-SliderButton.AnchorPoint = Vector2.new(0.5, 0.5)
-SliderButton.Position = UDim2.new(
-    (tweenSpeed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED),
+local Knob = Instance.new("TextButton")
+Knob.Size = UDim2.new(0, 14, 0, 14)
+Knob.AnchorPoint = Vector2.new(0.5, 0.5)
+Knob.Position = UDim2.new(
+    (Speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED),
     0,
     0.5,
     0
 )
-SliderButton.BackgroundColor3 = CYAN
-SliderButton.Text = ""
-SliderButton.BorderSizePixel = 0
-SliderButton.Parent = SliderBack
+Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Knob.Text = ""
+Knob.BorderSizePixel = 0
+Knob.ZIndex = 5
+Knob.Parent = Slider
 
-corner(SliderButton, 10)
+local KnobCorner = Instance.new("UICorner")
+KnobCorner.CornerRadius = UDim.new(1, 0)
+KnobCorner.Parent = Knob
 
---========================================================--
+--==================================================
+-- STATUS
+--==================================================
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, 0, 0, 18)
+Status.Position = UDim2.new(0, 0, 0, 108)
+Status.BackgroundTransparency = 1
+Status.Text = "Selecionado: Forest"
+Status.TextColor3 = Color3.fromRGB(0, 220, 255)
+Status.TextSize = 10
+Status.Font = Enum.Font.Gotham
+Status.TextXAlignment = Enum.TextXAlignment.Left
+Status.ZIndex = 2
+Status.Parent = Content
+
+--==================================================
+-- GO
+--==================================================
+
+local GoButton = Instance.new("TextButton")
+GoButton.Size = UDim2.new(0.48, 0, 0, 34)
+GoButton.Position = UDim2.new(0, 0, 0, 137)
+GoButton.BackgroundColor3 = Color3.fromRGB(30, 170, 80)
+GoButton.Text = "GO"
+GoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+GoButton.TextSize = 12
+GoButton.Font = Enum.Font.GothamBold
+GoButton.BorderSizePixel = 0
+GoButton.ZIndex = 2
+GoButton.Parent = Content
+
+local GoCorner = Instance.new("UICorner")
+GoCorner.CornerRadius = UDim.new(0, 7)
+GoCorner.Parent = GoButton
+
+--==================================================
+-- STOP
+--==================================================
+
+local StopButton = Instance.new("TextButton")
+StopButton.Size = UDim2.new(0.48, 0, 0, 34)
+StopButton.Position = UDim2.new(0.52, 0, 0, 137)
+StopButton.BackgroundColor3 = Color3.fromRGB(190, 45, 45)
+StopButton.Text = "STOP"
+StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+StopButton.TextSize = 12
+StopButton.Font = Enum.Font.GothamBold
+StopButton.BorderSizePixel = 0
+StopButton.ZIndex = 2
+StopButton.Parent = Content
+
+local StopCorner = Instance.new("UICorner")
+StopCorner.CornerRadius = UDim.new(0, 7)
+StopCorner.Parent = StopButton
+
+--==================================================
+-- BACK
+--==================================================
+
+local BackButton = Instance.new("TextButton")
+BackButton.Size = UDim2.new(1, 0, 0, 27)
+BackButton.Position = UDim2.new(0, 0, 0, 178)
+BackButton.BackgroundColor3 = Color3.fromRGB(150, 35, 35)
+BackButton.Text = "BACK"
+BackButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+BackButton.TextSize = 10
+BackButton.Font = Enum.Font.GothamBold
+BackButton.BorderSizePixel = 0
+BackButton.ZIndex = 2
+BackButton.Parent = Content
+
+local BackCorner = Instance.new("UICorner")
+BackCorner.CornerRadius = UDim.new(0, 6)
+BackCorner.Parent = BackButton
+
+--==================================================
 -- SPEED FUNCTIONS
---========================================================--
+--==================================================
 
-local function setSpeed(value)
+local function SetSpeed(value)
 
-    value = math.clamp(
-        math.floor(tonumber(value) or tweenSpeed),
-        MIN_SPEED,
-        MAX_SPEED
-    )
+    value = tonumber(value)
 
-    tweenSpeed = value
+    if not value then
+        value = Speed
+    end
+
+    value = math.clamp(math.floor(value + 0.5), MIN_SPEED, MAX_SPEED)
+
+    Speed = value
 
     SpeedBox.Text = tostring(value)
 
-    local percent =
-        (value - MIN_SPEED) /
-        (MAX_SPEED - MIN_SPEED)
+    local Percent = (value - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)
 
-    SliderFill.Size = UDim2.new(percent, 0, 1, 0)
-
-    SliderButton.Position = UDim2.new(
-        percent,
-        0,
-        0.5,
-        0
-    )
+    SliderFill.Size = UDim2.new(Percent, 0, 1, 0)
+    Knob.Position = UDim2.new(Percent, 0, 0.5, 0)
 end
 
 SpeedBox.FocusLost:Connect(function()
-    setSpeed(SpeedBox.Text)
+    SetSpeed(SpeedBox.Text)
 end)
 
-local sliderDragging = false
+local DraggingSlider = false
 
-local function updateSlider(inputX)
+local function UpdateSlider(inputX)
 
-    local startX = SliderBack.AbsolutePosition.X
-    local width = SliderBack.AbsoluteSize.X
+    local X = Slider.AbsolutePosition.X
+    local Width = Slider.AbsoluteSize.X
 
-    local percent = math.clamp(
-        (inputX - startX) / width,
+    local Percent = math.clamp(
+        (inputX - X) / Width,
         0,
         1
     )
 
-    local value =
-        MIN_SPEED +
-        (MAX_SPEED - MIN_SPEED) * percent
+    local Value = MIN_SPEED + ((MAX_SPEED - MIN_SPEED) * Percent)
 
-    setSpeed(value)
+    SetSpeed(Value)
 end
 
-SliderButton.InputBegan:Connect(function(input)
+Slider.InputBegan:Connect(function(input)
 
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
 
-        sliderDragging = true
+        DraggingSlider = true
+        UpdateSlider(input.Position.X)
     end
 end)
 
-SliderBack.InputBegan:Connect(function(input)
+Knob.InputBegan:Connect(function(input)
 
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
 
-        updateSlider(input.Position.X)
-        sliderDragging = true
+        DraggingSlider = true
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
 
-    if sliderDragging then
+    if DraggingSlider then
 
         if input.UserInputType == Enum.UserInputType.MouseMovement
             or input.UserInputType == Enum.UserInputType.Touch then
 
-            updateSlider(input.Position.X)
+            UpdateSlider(input.Position.X)
         end
     end
 end)
@@ -426,272 +534,214 @@ UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
 
-        sliderDragging = false
+        DraggingSlider = false
     end
 end)
 
---========================================================--
--- STATUS
---========================================================--
+--==================================================
+-- STOP MOVEMENT
+--==================================================
 
-local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1, 0, 0, 20)
-Status.Position = UDim2.new(0, 0, 0, 112)
-Status.BackgroundTransparency = 1
-Status.Text = "Selected: Forest"
-Status.TextColor3 = GREY
-Status.TextSize = 11
-Status.Font = Enum.Font.Gotham
-Status.TextXAlignment = Enum.TextXAlignment.Left
-Status.Parent = Content
+local function StopMovement()
 
---========================================================--
--- GO
---========================================================--
+    Moving = false
 
-local Go = Instance.new("TextButton")
-Go.Size = UDim2.new(1, 0, 0, 39)
-Go.Position = UDim2.new(0, 0, 0, 138)
-Go.BackgroundColor3 = GREEN
-Go.Text = "GO"
-Go.TextColor3 = WHITE
-Go.TextSize = 14
-Go.Font = Enum.Font.GothamBold
-Go.BorderSizePixel = 0
-Go.Parent = Content
-
-corner(Go, 7)
-stroke(Go, CYAN, 1, 0.3)
-
---========================================================--
--- BACK
---========================================================--
-
-local Back = Instance.new("TextButton")
-Back.Size = UDim2.new(0.48, 0, 0, 35)
-Back.Position = UDim2.new(0, 0, 0, 184)
-Back.BackgroundColor3 = RED
-Back.Text = "BACK"
-Back.TextColor3 = WHITE
-Back.TextSize = 12
-Back.Font = Enum.Font.GothamBold
-Back.BorderSizePixel = 0
-Back.Parent = Content
-
-corner(Back, 7)
-stroke(Back, CYAN, 1, 0.3)
-
---========================================================--
--- STOP
---========================================================--
-
-local Stop = Instance.new("TextButton")
-Stop.Size = UDim2.new(0.48, 0, 0, 35)
-Stop.Position = UDim2.new(0.52, 0, 0, 184)
-Stop.BackgroundColor3 = DARKER
-Stop.Text = "STOP"
-Stop.TextColor3 = WHITE
-Stop.TextSize = 12
-Stop.Font = Enum.Font.GothamBold
-Stop.BorderSizePixel = 0
-Stop.Visible = false
-Stop.Parent = Content
-
-corner(Stop, 7)
-stroke(Stop, CYAN, 1, 0.15)
-
---========================================================--
--- TWEEN
---========================================================--
-
-local function stopTween()
-
-    if currentTween then
-        currentTween:Cancel()
-        currentTween = nil
+    if CurrentTween then
+        CurrentTween:Cancel()
+        CurrentTween = nil
     end
 
-    tweening = false
+    if MoveConnection then
+        MoveConnection:Disconnect()
+        MoveConnection = nil
+    end
 
-    Go.Visible = true
-    Back.Visible = true
-    Stop.Visible = false
+    Status.Text = "Movimento parado"
+    Status.TextColor3 = Color3.fromRGB(255, 170, 0)
 
-    Status.Text = "Stopped"
-    Status.TextColor3 = GREY
+    GoButton.Text = "GO"
 end
 
-local function tweenTo(target, name)
+StopButton.MouseButton1Click:Connect(function()
+    StopMovement()
+end)
 
-    local Character = Player.Character
-    if not Character then return end
+--==================================================
+-- SAFE CLIENT MOVEMENT
+--==================================================
 
-    local Root = Character:FindFirstChild("HumanoidRootPart")
-    if not Root then return end
+local function MoveToArea()
 
-    stopTween()
-
-    local distance = (Root.Position - target).Magnitude
-
-    if distance <= 1 then
-        Status.Text = "Already at " .. name
+    if Moving then
         return
     end
 
-    local duration = distance / tweenSpeed
+    GetCharacter()
 
-    tweening = true
+    if not Character or not Root or not Root.Parent then
+        return
+    end
 
-    Go.Visible = false
-    Back.Visible = false
-    Stop.Visible = true
+    local Target = Areas[SelectedArea]
 
-    Status.Text =
-        "Going to " .. name ..
-        " • " .. tweenSpeed .. " speed"
+    if not Target then
+        Status.Text = "Área inválida"
+        Status.TextColor3 = Color3.fromRGB(255, 70, 70)
+        return
+    end
 
-    Status.TextColor3 = CYAN
+    Moving = true
 
-    currentTween = TweenService:Create(
-        Root,
+    Dropdown.Visible = false
+
+    Status.Text = "Indo para: " .. SelectedArea
+    Status.TextColor3 = Color3.fromRGB(0, 255, 150)
+
+    GoButton.Text = "MOVENDO..."
+
+    local StartPivot = Character:GetPivot()
+
+    local TargetCFrame = CFrame.new(
+        Target + Vector3.new(0, 3, 0)
+    )
+
+    local Distance = (StartPivot.Position - Target).Magnitude
+
+    local Duration = math.max(
+        Distance / Speed,
+        0.05
+    )
+
+    -- CFrameValue é usado em vez de Tweenar
+    -- diretamente o HumanoidRootPart.
+    local PivotValue = Instance.new("CFrameValue")
+    PivotValue.Value = StartPivot
+
+    CurrentTween = TweenService:Create(
+        PivotValue,
         TweenInfo.new(
-            duration,
+            Duration,
             Enum.EasingStyle.Linear,
-            Enum.EasingDirection.Out
+            Enum.EasingDirection.InOut
         ),
         {
-            CFrame = CFrame.new(target)
+            Value = TargetCFrame
         }
     )
 
-    currentTween.Completed:Connect(function(state)
+    MoveConnection = PivotValue.Changed:Connect(function(NewCFrame)
 
-        if state == Enum.PlaybackState.Completed then
-            Status.Text = "Arrived at " .. name
-            Status.TextColor3 = GREEN
+        if Moving and Character and Character.Parent then
+            Character:PivotTo(NewCFrame)
         end
-
-        tweening = false
-        currentTween = nil
-
-        Go.Visible = true
-        Back.Visible = true
-        Stop.Visible = false
     end)
 
-    currentTween:Play()
+    CurrentTween.Completed:Connect(function(playbackState)
+
+        if MoveConnection then
+            MoveConnection:Disconnect()
+            MoveConnection = nil
+        end
+
+        PivotValue:Destroy()
+        CurrentTween = nil
+
+        if playbackState == Enum.PlaybackState.Completed then
+
+            if Character and Character.Parent then
+                Character:PivotTo(TargetCFrame)
+            end
+
+            Status.Text = "Chegou em: " .. SelectedArea
+            Status.TextColor3 = Color3.fromRGB(0, 255, 100)
+
+        end
+
+        Moving = false
+        GoButton.Text = "GO"
+    end)
+
+    CurrentTween:Play()
 end
 
-Go.MouseButton1Click:Connect(function()
-
-    local target = Areas[selectedArea]
-
-    if target then
-        tweenTo(target, selectedArea)
-    end
+GoButton.MouseButton1Click:Connect(function()
+    MoveToArea()
 end)
 
-Back.MouseButton1Click:Connect(function()
+--==================================================
+-- BACK BUTTON
+--==================================================
 
-    tweenTo(Areas.Back, "Back")
+BackButton.MouseButton1Click:Connect(function()
+
+    SelectedArea = "Back"
+    AreaButton.Text = "Back  ▼"
+
+    Status.Text = "Selecionado: Back"
+    Status.TextColor3 = Color3.fromRGB(0, 220, 255)
+
+    MoveToArea()
 end)
 
-Stop.MouseButton1Click:Connect(function()
-    stopTween()
-end)
+--==================================================
+-- DRAG MAIN WINDOW
+--==================================================
 
---========================================================--
--- DRAG
---========================================================--
-
-local dragging = false
-local dragStart
-local startPos
+local DraggingWindow = false
+local DragStart
+local StartPosition
 
 TitleBar.InputBegan:Connect(function(input)
 
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
 
-        dragging = true
-        dragStart = input.Position
-        startPos = Main.Position
-    end
-end)
-
-TitleBar.InputEnded:Connect(function(input)
-
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-
-        dragging = false
+        DraggingWindow = true
+        DragStart = input.Position
+        StartPosition = Main.Position
     end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
 
-    if not dragging then return end
+    if DraggingWindow then
 
-    if input.UserInputType == Enum.UserInputType.MouseMovement
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            local Delta = input.Position - DragStart
+
+            Main.Position = UDim2.new(
+                StartPosition.X.Scale,
+                StartPosition.X.Offset + Delta.X,
+                StartPosition.Y.Scale,
+                StartPosition.Y.Offset + Delta.Y
+            )
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+    if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
 
-        local delta = input.Position - dragStart
-
-        Main.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
+        DraggingWindow = false
     end
 end)
 
---========================================================--
--- MINIMIZED BUTTON
---========================================================--
+--==================================================
+-- MINI CIRCLE
+--==================================================
 
 local Mini = Instance.new("TextButton")
-Mini.Size = UDim2.new(0, 52, 0, 52)
-Mini.Position = UDim2.new(0.5, -26, 0.5, -26)
-Mini.BackgroundColor3 = BLACK
+Mini.Name = "Mini"
+Mini.Size = UDim2.new(0, 45, 0, 45)
+Mini.Position = UDim2.new(0, 15, 0.5, -22)
+Mini.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
 Mini.BackgroundTransparency = 0.05
 Mini.Text = "AT"
-Mini.TextColor3 = CYAN
-Mini.TextSize = 15
+Mini.TextColor3 = Color3.fromRGB(0, 220, 255)
+Mini.TextSize = 13
 Mini.Font = Enum.Font.GothamBold
-Mini.BorderSizePixel = 0
-Mini.Visible = false
-Mini.Parent = ScreenGui
-
-corner(Mini, 26)
-stroke(Mini, CYAN, 2, 0)
-
---========================================================--
--- MINIMIZE
---========================================================--
-
-Minimize.MouseButton1Click:Connect(function()
-
-    if tweening then
-        return
-    end
-
-    Mini.Position = UDim2.new(
-        Main.Position.X.Scale,
-        Main.Position.X.Offset +
-            (Main.AbsoluteSize.X / 2) - 26,
-
-        Main.Position.Y.Scale,
-        Main.Position.Y.Offset +
-            (Main.AbsoluteSize.Y / 2) - 26
-    )
-
-    Main.Visible = false
-    Mini.Visible = true
-end)
-
-Mini.MouseButton1Click:Connect(function()
-
-    Main.Visible = true
-    Mini.Visible = false
-end)
+M
