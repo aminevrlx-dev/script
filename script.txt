@@ -1,8 +1,10 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local Player = Players.LocalPlayer
+
 local Gui = Instance.new("ScreenGui")
 Gui.Name = "AreaTeleport"
 Gui.ResetOnSpawn = false
@@ -44,6 +46,11 @@ local Moving = false
 local CurrentTween
 local MoveConnection
 local PivotValue
+
+local LastPrompt = nil
+local LastPromptPosition = nil
+local AutoPrompt = false
+local Reconnecting = false
 
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0, 245, 0, 235)
@@ -332,7 +339,6 @@ local function Notify(Title, Text, Type)
         end
     end)
 end
-
 local function SetSpeed(Value)
     Value = math.clamp(math.floor(tonumber(Value) or 250), 50, 1000)
     Speed = Value
@@ -418,12 +424,6 @@ local function StopTween()
     GoButton.Text = "GO"
     Status.Text = "Movimento parado"
     Status.TextColor3 = Color3.fromRGB(255, 180, 0)
-
-    Notify(
-        "Parado",
-        "O movimento foi interrompido.",
-        "info"
-    )
 end
 
 StopButton.MouseButton1Click:Connect(function()
@@ -438,20 +438,9 @@ local function MoveToArea()
     end
 
     local Character = Player.Character or Player.CharacterAdded:Wait()
-    local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
-
-    if not HumanoidRootPart then
-        Notify(
-            "Erro",
-            "HumanoidRootPart não encontrado.",
-            "info"
-        )
-        return
-    end
-
     local Position = Areas[SelectedArea]
 
-    if not Position then
+    if not Character or not Position then
         return
     end
 
@@ -477,17 +466,11 @@ local function MoveToArea()
 
     CurrentTween = TweenService:Create(
         PivotValue,
-        TweenInfo.new(
-            Duration,
-            Enum.EasingStyle.Linear,
-            Enum.EasingDirection.Out
-        ),
-        {
-            Value = TargetCFrame
-        }
+        TweenInfo.new(Duration, Enum.EasingStyle.Linear),
+        {Value = TargetCFrame}
     )
 
-    CurrentTween.Completed:Connect(function(PlaybackState)
+    CurrentTween.Completed:Connect(function(State)
         if MoveConnection then
             MoveConnection:Disconnect()
             MoveConnection = nil
@@ -500,7 +483,7 @@ local function MoveToArea()
 
         CurrentTween = nil
 
-        if PlaybackState == Enum.PlaybackState.Completed then
+        if State == Enum.PlaybackState.Completed then
             if Character and Character.Parent then
                 Character:PivotTo(TargetCFrame)
             end
@@ -530,6 +513,70 @@ BackButton.MouseButton1Click:Connect(function()
     SelectedArea = "Back"
     AreaButton.Text = "Back  ▼"
     MoveToArea()
+end)
+
+ProximityPromptService.PromptTriggered:Connect(function(Prompt, TriggeringPlayer)
+    if TriggeringPlayer and TriggeringPlayer ~= Player then
+        return
+    end
+
+    LastPrompt = Prompt
+    LastPromptPosition = Prompt:GetPivot()
+    AutoPrompt = true
+
+    Notify(
+        "Ovo detectado!",
+        "Último ProximityPrompt salvo.",
+        "success"
+    )
+end)
+
+local function FindLastPrompt()
+    if LastPrompt and LastPrompt.Parent then
+        return LastPrompt
+    end
+
+    return nil
+end
+
+local function ReturnToLastPrompt()
+    if Reconnecting or not AutoPrompt then
+        return
+    end
+
+    local Prompt = FindLastPrompt()
+
+    if not Prompt or not LastPromptPosition then
+        return
+    end
+
+    Reconnecting = true
+
+    task.wait(1)
+
+    local Character = Player.Character or Player.CharacterAdded:Wait()
+
+    if Character and Character.Parent then
+        Character:PivotTo(LastPromptPosition)
+    end
+
+    task.wait(0.5)
+
+    if Prompt and Prompt.Parent then
+        pcall(function()
+            fireproximityprompt(Prompt)
+        end)
+    end
+
+    Reconnecting = false
+end
+
+Player.CharacterAdded:Connect(function()
+    if AutoPrompt and LastPrompt then
+        task.spawn(function()
+            ReturnToLastPrompt()
+        end)
+    end
 end)
 
 local DraggingWindow = false
@@ -572,7 +619,6 @@ UserInputService.InputEnded:Connect(function(Input)
 end)
 
 local Mini = Instance.new("TextButton")
-Mini.Name = "Mini"
 Mini.Size = UDim2.new(0, 45, 0, 45)
 Mini.Position = UDim2.new(0, 15, 0.5, -22)
 Mini.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
@@ -603,45 +649,6 @@ end)
 Mini.MouseButton1Click:Connect(function()
     Main.Visible = true
     Mini.Visible = false
-end)
-
-local MiniDragging = false
-local MiniDragStart
-local MiniStartPosition
-
-Mini.InputBegan:Connect(function(Input)
-    if Input.UserInputType == Enum.UserInputType.MouseButton1
-        or Input.UserInputType == Enum.UserInputType.Touch then
-
-        MiniDragging = true
-        MiniDragStart = Input.Position
-        MiniStartPosition = Mini.Position
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(Input)
-    if MiniDragging then
-        if Input.UserInputType == Enum.UserInputType.MouseMovement
-            or Input.UserInputType == Enum.UserInputType.Touch then
-
-            local Delta = Input.Position - MiniDragStart
-
-            Mini.Position = UDim2.new(
-                MiniStartPosition.X.Scale,
-                MiniStartPosition.X.Offset + Delta.X,
-                MiniStartPosition.Y.Scale,
-                MiniStartPosition.Y.Offset + Delta.Y
-            )
-        end
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(Input)
-    if Input.UserInputType == Enum.UserInputType.MouseButton1
-        or Input.UserInputType == Enum.UserInputType.Touch then
-
-        MiniDragging = false
-    end
 end)
 
 SetSpeed(250)
