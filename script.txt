@@ -1,16 +1,12 @@
---// AREA TELEPORT UI - LOCAL SCRIPT
---// Coloque em StarterPlayerScripts ou execute como LocalScript
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
-
---==================================================
--- CONFIG
---==================================================
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "AreaTeleport"
+Gui.ResetOnSpawn = false
+Gui.Parent = Player:WaitForChild("PlayerGui")
 
 local Areas = {
     ["Forest"] = Vector3.new(545.22, 71.14, -365.81),
@@ -24,9 +20,7 @@ local Areas = {
     ["Cosmic"] = Vector3.new(3367.89, 71.14, -301.57),
     ["Cherry Blossom"] = Vector3.new(4000.78, 71.14, -410.80),
     ["Titan Temple"] = Vector3.new(4770.83, 71.14, -315.31),
-
-    -- Back = Forest
-    ["Back"] = Vector3.new(545.22, 71.14, -365.81),
+    ["Back"] = Vector3.new(545.22, 71.14, -365.81)
 }
 
 local AreaNames = {
@@ -41,71 +35,17 @@ local AreaNames = {
     "Cosmic",
     "Cherry Blossom",
     "Titan Temple",
-    "Back",
+    "Back"
 }
 
-local MIN_SPEED = 50
-local MAX_SPEED = 1000
-
-local Speed = 250
 local SelectedArea = "Forest"
-
+local Speed = 250
 local Moving = false
-local MoveConnection = nil
-local CurrentTween = nil
-
---==================================================
--- CHARACTER
---==================================================
-
-local Character
-local Humanoid
-local Root
-
-local function GetCharacter()
-    Character = Player.Character or Player.CharacterAdded:Wait()
-
-    Humanoid = Character:WaitForChild("Humanoid")
-    Root = Character:WaitForChild("HumanoidRootPart")
-
-    return Character, Humanoid, Root
-end
-
-GetCharacter()
-
-Player.CharacterAdded:Connect(function()
-    Moving = false
-
-    if MoveConnection then
-        MoveConnection:Disconnect()
-        MoveConnection = nil
-    end
-
-    if CurrentTween then
-        CurrentTween:Cancel()
-        CurrentTween = nil
-    end
-
-    task.wait(0.5)
-    GetCharacter()
-end)
-
---==================================================
--- GUI
---==================================================
-
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "AreaTweenUI"
-Gui.ResetOnSpawn = false
-Gui.IgnoreGuiInset = true
-Gui.Parent = Player:WaitForChild("PlayerGui")
-
---==================================================
--- MAIN
---==================================================
+local CurrentTween
+local MoveConnection
+local PivotValue
 
 local Main = Instance.new("Frame")
-Main.Name = "Main"
 Main.Size = UDim2.new(0, 245, 0, 235)
 Main.Position = UDim2.new(0.5, -122, 0.5, -117)
 Main.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
@@ -119,92 +59,38 @@ MainCorner.Parent = Main
 
 local MainStroke = Instance.new("UIStroke")
 MainStroke.Color = Color3.fromRGB(0, 220, 255)
-MainStroke.Thickness = 1.5
+MainStroke.Thickness = 2
 MainStroke.Parent = Main
 
---==================================================
--- TITLE BAR
---==================================================
-
-local TitleBar = Instance.new("Frame")
+local TitleBar = Instance.new("TextButton")
 TitleBar.Size = UDim2.new(1, 0, 0, 32)
-TitleBar.BackgroundColor3 = Color3.fromRGB(12, 12, 15)
-TitleBar.BorderSizePixel = 0
+TitleBar.BackgroundTransparency = 1
+TitleBar.Text = "AREA TELEPORT"
+TitleBar.TextColor3 = Color3.fromRGB(0, 220, 255)
+TitleBar.TextSize = 14
+TitleBar.Font = Enum.Font.GothamBold
 TitleBar.Parent = Main
 
-local TitleCorner = Instance.new("UICorner")
-TitleCorner.CornerRadius = UDim.new(0, 10)
-TitleCorner.Parent = TitleBar
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -45, 1, 0)
-Title.Position = UDim2.new(0, 10, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "AREA TELEPORT"
-Title.TextColor3 = Color3.fromRGB(0, 220, 255)
-Title.TextSize = 13
-Title.Font = Enum.Font.GothamBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = TitleBar
-
---==================================================
--- MINIMIZE
---==================================================
-
 local Minimize = Instance.new("TextButton")
-Minimize.Name = "Minimize"
-Minimize.Size = UDim2.new(0, 30, 0, 25)
-Minimize.Position = UDim2.new(1, -34, 0, 4)
-Minimize.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-Minimize.Text = "−"
-Minimize.TextColor3 = Color3.fromRGB(0, 220, 255)
-Minimize.TextSize = 18
+Minimize.Size = UDim2.new(0, 28, 0, 28)
+Minimize.Position = UDim2.new(1, -31, 0, 2)
+Minimize.BackgroundTransparency = 1
+Minimize.Text = "-"
+Minimize.TextColor3 = Color3.fromRGB(255, 255, 255)
+Minimize.TextSize = 20
 Minimize.Font = Enum.Font.GothamBold
-Minimize.BorderSizePixel = 0
-Minimize.Parent = TitleBar
-
-local MinCorner = Instance.new("UICorner")
-MinCorner.CornerRadius = UDim.new(0, 6)
-MinCorner.Parent = Minimize
-
---==================================================
--- CONTENT
---==================================================
-
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -16, 1, -40)
-Content.Position = UDim2.new(0, 8, 0, 36)
-Content.BackgroundTransparency = 1
-Content.Parent = Main
-
---==================================================
--- AREA LABEL
---==================================================
-
-local AreaLabel = Instance.new("TextLabel")
-AreaLabel.Size = UDim2.new(1, 0, 0, 18)
-AreaLabel.BackgroundTransparency = 1
-AreaLabel.Text = "ÁREA"
-AreaLabel.TextColor3 = Color3.fromRGB(180, 180, 185)
-AreaLabel.TextSize = 10
-AreaLabel.Font = Enum.Font.GothamBold
-AreaLabel.TextXAlignment = Enum.TextXAlignment.Left
-AreaLabel.Parent = Content
-
---==================================================
--- AREA BUTTON
---==================================================
+Minimize.Parent = Main
 
 local AreaButton = Instance.new("TextButton")
-AreaButton.Size = UDim2.new(1, 0, 0, 32)
-AreaButton.Position = UDim2.new(0, 0, 0, 20)
-AreaButton.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-AreaButton.Text = SelectedArea .. "  ▼"
-AreaButton.TextColor3 = Color3.fromRGB(235, 235, 240)
-AreaButton.TextSize = 12
-AreaButton.Font = Enum.Font.GothamSemibold
+AreaButton.Size = UDim2.new(1, -20, 0, 32)
+AreaButton.Position = UDim2.new(0, 10, 0, 40)
+AreaButton.BackgroundColor3 = Color3.fromRGB(5, 20, 23)
+AreaButton.Text = "Forest  ▼"
+AreaButton.TextColor3 = Color3.fromRGB(0, 220, 255)
+AreaButton.TextSize = 13
+AreaButton.Font = Enum.Font.GothamBold
 AreaButton.BorderSizePixel = 0
-AreaButton.Parent = Content
+AreaButton.Parent = Main
 
 local AreaCorner = Instance.new("UICorner")
 AreaCorner.CornerRadius = UDim.new(0, 7)
@@ -215,337 +101,304 @@ AreaStroke.Color = Color3.fromRGB(0, 220, 255)
 AreaStroke.Thickness = 1
 AreaStroke.Parent = AreaButton
 
---==================================================
--- DROPDOWN
---==================================================
-
-local Dropdown = Instance.new("Frame")
-Dropdown.Name = "Dropdown"
-Dropdown.Size = UDim2.new(1, 0, 0, 145)
-Dropdown.Position = UDim2.new(0, 0, 0, 55)
-Dropdown.BackgroundColor3 = Color3.fromRGB(10, 10, 13)
+local Dropdown = Instance.new("ScrollingFrame")
+Dropdown.Size = UDim2.new(1, -20, 0, 125)
+Dropdown.Position = UDim2.new(0, 10, 0, 75)
+Dropdown.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
 Dropdown.BorderSizePixel = 0
+Dropdown.ScrollBarThickness = 3
 Dropdown.Visible = false
 Dropdown.ZIndex = 20
-Dropdown.Parent = Content
+Dropdown.Parent = Main
 
-local DropCorner = Instance.new("UICorner")
-DropCorner.CornerRadius = UDim.new(0, 7)
-DropCorner.Parent = Dropdown
+local DropdownCorner = Instance.new("UICorner")
+DropdownCorner.CornerRadius = UDim.new(0, 7)
+DropdownCorner.Parent = Dropdown
 
-local DropStroke = Instance.new("UIStroke")
-DropStroke.Color = Color3.fromRGB(0, 220, 255)
-DropStroke.Thickness = 1
-DropStroke.Parent = Dropdown
+local DropdownStroke = Instance.new("UIStroke")
+DropdownStroke.Color = Color3.fromRGB(0, 220, 255)
+DropdownStroke.Thickness = 1
+DropdownStroke.Parent = Dropdown
 
-local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1, -6, 1, -6)
-Scroll.Position = UDim2.new(0, 3, 0, 3)
-Scroll.BackgroundTransparency = 1
-Scroll.BorderSizePixel = 0
-Scroll.ScrollBarThickness = 3
-Scroll.ScrollBarImageColor3 = Color3.fromRGB(0, 220, 255)
-Scroll.CanvasSize = UDim2.new(0, 0, 0, #AreaNames * 30)
-Scroll.ZIndex = 21
-Scroll.Parent = Dropdown
+local DropdownLayout = Instance.new("UIListLayout")
+DropdownLayout.Padding = UDim.new(0, 2)
+DropdownLayout.Parent = Dropdown
 
-local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 2)
-Layout.Parent = Scroll
-
-for _, areaName in ipairs(AreaNames) do
-
+for _, Name in ipairs(AreaNames) do
     local Button = Instance.new("TextButton")
-    Button.Size = UDim2.new(1, -4, 0, 27)
-    Button.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-    Button.BorderSizePixel = 0
-    Button.Text = areaName
-    Button.TextColor3 = Color3.fromRGB(230, 230, 235)
-    Button.TextSize = 11
+    Button.Size = UDim2.new(1, -6, 0, 28)
+    Button.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+    Button.Text = Name
+    Button.TextColor3 = Color3.fromRGB(230, 230, 230)
+    Button.TextSize = 12
     Button.Font = Enum.Font.Gotham
-    Button.ZIndex = 22
-    Button.Parent = Scroll
+    Button.BorderSizePixel = 0
+    Button.ZIndex = 21
+    Button.Parent = Dropdown
 
     local Corner = Instance.new("UICorner")
     Corner.CornerRadius = UDim.new(0, 5)
     Corner.Parent = Button
 
     Button.MouseButton1Click:Connect(function()
-
-        SelectedArea = areaName
-        AreaButton.Text = areaName .. "  ▼"
-
+        SelectedArea = Name
+        AreaButton.Text = Name .. "  ▼"
         Dropdown.Visible = false
-
-        Status.Text = "Selecionado: " .. areaName
-        Status.TextColor3 = Color3.fromRGB(0, 220, 255)
-
     end)
 end
 
-AreaButton.MouseButton1Click:Connect(function()
-    Dropdown.Visible = not Dropdown.Visible
-end)
-
---==================================================
--- SPEED
---==================================================
-
 local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Size = UDim2.new(0.45, 0, 0, 18)
-SpeedLabel.Position = UDim2.new(0, 0, 0, 62)
+SpeedLabel.Size = UDim2.new(0, 90, 0, 25)
+SpeedLabel.Position = UDim2.new(0, 10, 0, 82)
 SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "VELOCIDADE"
-SpeedLabel.TextColor3 = Color3.fromRGB(180, 180, 185)
-SpeedLabel.TextSize = 10
+SpeedLabel.Text = "Speed"
+SpeedLabel.TextColor3 = Color3.fromRGB(0, 220, 255)
+SpeedLabel.TextSize = 12
 SpeedLabel.Font = Enum.Font.GothamBold
 SpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
-SpeedLabel.ZIndex = 2
-SpeedLabel.Parent = Content
+SpeedLabel.Parent = Main
 
 local SpeedBox = Instance.new("TextBox")
-SpeedBox.Size = UDim2.new(0, 65, 0, 24)
-SpeedBox.Position = UDim2.new(1, -65, 0, 59)
-SpeedBox.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-SpeedBox.Text = tostring(Speed)
+SpeedBox.Size = UDim2.new(0, 80, 0, 28)
+SpeedBox.Position = UDim2.new(1, -90, 0, 80)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+SpeedBox.Text = "250"
 SpeedBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-SpeedBox.TextSize = 11
+SpeedBox.TextSize = 12
 SpeedBox.Font = Enum.Font.GothamBold
 SpeedBox.ClearTextOnFocus = false
 SpeedBox.BorderSizePixel = 0
-SpeedBox.ZIndex = 2
-SpeedBox.Parent = Content
+SpeedBox.Parent = Main
 
-local SpeedBoxCorner = Instance.new("UICorner")
-SpeedBoxCorner.CornerRadius = UDim.new(0, 6)
-SpeedBoxCorner.Parent = SpeedBox
+local SpeedCorner = Instance.new("UICorner")
+SpeedCorner.CornerRadius = UDim.new(0, 6)
+SpeedCorner.Parent = SpeedBox
 
-local SpeedBoxStroke = Instance.new("UIStroke")
-SpeedBoxStroke.Color = Color3.fromRGB(0, 220, 255)
-SpeedBoxStroke.Thickness = 1
-SpeedBoxStroke.Parent = SpeedBox
-
---==================================================
--- SLIDER
---==================================================
+local SpeedStroke = Instance.new("UIStroke")
+SpeedStroke.Color = Color3.fromRGB(0, 220, 255)
+SpeedStroke.Thickness = 1
+SpeedStroke.Parent = SpeedBox
 
 local Slider = Instance.new("Frame")
-Slider.Size = UDim2.new(1, 0, 0, 5)
-Slider.Position = UDim2.new(0, 0, 0, 94)
+Slider.Size = UDim2.new(1, -20, 0, 5)
+Slider.Position = UDim2.new(0, 10, 0, 116)
 Slider.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
 Slider.BorderSizePixel = 0
-Slider.ZIndex = 2
-Slider.Parent = Content
+Slider.Parent = Main
 
 local SliderCorner = Instance.new("UICorner")
 SliderCorner.CornerRadius = UDim.new(1, 0)
 SliderCorner.Parent = Slider
 
-local SliderFill = Instance.new("Frame")
-SliderFill.Size = UDim2.new(
-    (Speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED),
-    0,
-    1,
-    0
-)
-SliderFill.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
-SliderFill.BorderSizePixel = 0
-SliderFill.ZIndex = 3
-SliderFill.Parent = Slider
+local Fill = Instance.new("Frame")
+Fill.Size = UDim2.new(0.21, 0, 1, 0)
+Fill.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
+Fill.BorderSizePixel = 0
+Fill.Parent = Slider
 
 local FillCorner = Instance.new("UICorner")
 FillCorner.CornerRadius = UDim.new(1, 0)
-FillCorner.Parent = SliderFill
+FillCorner.Parent = Fill
 
 local Knob = Instance.new("TextButton")
 Knob.Size = UDim2.new(0, 14, 0, 14)
-Knob.AnchorPoint = Vector2.new(0.5, 0.5)
-Knob.Position = UDim2.new(
-    (Speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED),
-    0,
-    0.5,
-    0
-)
-Knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Knob.Position = UDim2.new(0.21, -7, 0.5, -7)
+Knob.BackgroundColor3 = Color3.fromRGB(0, 220, 255)
 Knob.Text = ""
 Knob.BorderSizePixel = 0
-Knob.ZIndex = 5
 Knob.Parent = Slider
 
 local KnobCorner = Instance.new("UICorner")
 KnobCorner.CornerRadius = UDim.new(1, 0)
 KnobCorner.Parent = Knob
 
---==================================================
--- STATUS
---==================================================
-
-local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1, 0, 0, 18)
-Status.Position = UDim2.new(0, 0, 0, 108)
-Status.BackgroundTransparency = 1
-Status.Text = "Selecionado: Forest"
-Status.TextColor3 = Color3.fromRGB(0, 220, 255)
-Status.TextSize = 10
-Status.Font = Enum.Font.Gotham
-Status.TextXAlignment = Enum.TextXAlignment.Left
-Status.ZIndex = 2
-Status.Parent = Content
-
---==================================================
--- GO
---==================================================
-
 local GoButton = Instance.new("TextButton")
-GoButton.Size = UDim2.new(0.48, 0, 0, 34)
-GoButton.Position = UDim2.new(0, 0, 0, 137)
-GoButton.BackgroundColor3 = Color3.fromRGB(30, 170, 80)
+GoButton.Size = UDim2.new(0.48, -5, 0, 34)
+GoButton.Position = UDim2.new(0, 10, 0, 132)
+GoButton.BackgroundColor3 = Color3.fromRGB(0, 130, 65)
 GoButton.Text = "GO"
 GoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-GoButton.TextSize = 12
+GoButton.TextSize = 13
 GoButton.Font = Enum.Font.GothamBold
 GoButton.BorderSizePixel = 0
-GoButton.ZIndex = 2
-GoButton.Parent = Content
+GoButton.Parent = Main
 
 local GoCorner = Instance.new("UICorner")
 GoCorner.CornerRadius = UDim.new(0, 7)
 GoCorner.Parent = GoButton
 
---==================================================
--- STOP
---==================================================
+local BackButton = Instance.new("TextButton")
+BackButton.Size = UDim2.new(0.48, -5, 0, 34)
+BackButton.Position = UDim2.new(0.52, 0, 0, 132)
+BackButton.BackgroundColor3 = Color3.fromRGB(170, 35, 35)
+BackButton.Text = "BACK"
+BackButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+BackButton.TextSize = 13
+BackButton.Font = Enum.Font.GothamBold
+BackButton.BorderSizePixel = 0
+BackButton.Parent = Main
+
+local BackCorner = Instance.new("UICorner")
+BackCorner.CornerRadius = UDim.new(0, 7)
+BackCorner.Parent = BackButton
 
 local StopButton = Instance.new("TextButton")
-StopButton.Size = UDim2.new(0.48, 0, 0, 34)
-StopButton.Position = UDim2.new(0.52, 0, 0, 137)
-StopButton.BackgroundColor3 = Color3.fromRGB(190, 45, 45)
+StopButton.Size = UDim2.new(1, -20, 0, 28)
+StopButton.Position = UDim2.new(0, 10, 0, 171)
+StopButton.BackgroundColor3 = Color3.fromRGB(70, 70, 75)
 StopButton.Text = "STOP"
 StopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 StopButton.TextSize = 12
 StopButton.Font = Enum.Font.GothamBold
 StopButton.BorderSizePixel = 0
-StopButton.ZIndex = 2
-StopButton.Parent = Content
+StopButton.Parent = Main
 
 local StopCorner = Instance.new("UICorner")
 StopCorner.CornerRadius = UDim.new(0, 7)
 StopCorner.Parent = StopButton
 
---==================================================
--- BACK
---==================================================
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -20, 0, 22)
+Status.Position = UDim2.new(0, 10, 0, 205)
+Status.BackgroundTransparency = 1
+Status.Text = "Pronto"
+Status.TextColor3 = Color3.fromRGB(0, 220, 255)
+Status.TextSize = 11
+Status.Font = Enum.Font.Gotham
+Status.TextXAlignment = Enum.TextXAlignment.Center
+Status.Parent = Main
 
-local BackButton = Instance.new("TextButton")
-BackButton.Size = UDim2.new(1, 0, 0, 27)
-BackButton.Position = UDim2.new(0, 0, 0, 178)
-BackButton.BackgroundColor3 = Color3.fromRGB(150, 35, 35)
-BackButton.Text = "BACK"
-BackButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-BackButton.TextSize = 10
-BackButton.Font = Enum.Font.GothamBold
-BackButton.BorderSizePixel = 0
-BackButton.ZIndex = 2
-BackButton.Parent = Content
+local NotifyHolder = Instance.new("Frame")
+NotifyHolder.Size = UDim2.new(0, 280, 1, -20)
+NotifyHolder.Position = UDim2.new(1, -290, 0, 10)
+NotifyHolder.BackgroundTransparency = 1
+NotifyHolder.Parent = Gui
 
-local BackCorner = Instance.new("UICorner")
-BackCorner.CornerRadius = UDim.new(0, 6)
-BackCorner.Parent = BackButton
+local NotifyLayout = Instance.new("UIListLayout")
+NotifyLayout.Padding = UDim.new(0, 8)
+NotifyLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+NotifyLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+NotifyLayout.Parent = NotifyHolder
 
---==================================================
--- SPEED FUNCTIONS
---==================================================
+local function Notify(Title, Text, Type)
+    local Frame = Instance.new("TextButton")
+    Frame.Size = UDim2.new(0, 270, 0, 65)
+    Frame.BackgroundColor3 = Color3.fromRGB(10, 10, 13)
+    Frame.BackgroundTransparency = 0.05
+    Frame.Text = ""
+    Frame.AutoButtonColor = false
+    Frame.BorderSizePixel = 0
+    Frame.Parent = NotifyHolder
 
-local function SetSpeed(value)
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = Frame
 
-    value = tonumber(value)
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Type == "success" and Color3.fromRGB(0, 255, 100) or Color3.fromRGB(0, 220, 255)
+    Stroke.Thickness = 2
+    Stroke.Parent = Frame
 
-    if not value then
-        value = Speed
-    end
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Size = UDim2.new(1, -20, 0, 22)
+    TitleLabel.Position = UDim2.new(0, 10, 0, 7)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Text = Title
+    TitleLabel.TextColor3 = Stroke.Color
+    TitleLabel.TextSize = 13
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.Parent = Frame
 
-    value = math.clamp(math.floor(value + 0.5), MIN_SPEED, MAX_SPEED)
+    local TextLabel = Instance.new("TextLabel")
+    TextLabel.Size = UDim2.new(1, -20, 0, 30)
+    TextLabel.Position = UDim2.new(0, 10, 0, 29)
+    TextLabel.BackgroundTransparency = 1
+    TextLabel.Text = Text
+    TextLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    TextLabel.TextSize = 11
+    TextLabel.Font = Enum.Font.Gotham
+    TextLabel.TextWrapped = true
+    TextLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TextLabel.Parent = Frame
 
-    Speed = value
+    Frame.MouseButton1Click:Connect(function()
+        Frame:Destroy()
+    end)
 
-    SpeedBox.Text = tostring(value)
+    task.delay(15, function()
+        if Frame and Frame.Parent then
+            Frame:Destroy()
+        end
+    end)
+end
 
-    local Percent = (value - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)
+local function SetSpeed(Value)
+    Value = math.clamp(math.floor(tonumber(Value) or 250), 50, 1000)
+    Speed = Value
+    SpeedBox.Text = tostring(Value)
 
-    SliderFill.Size = UDim2.new(Percent, 0, 1, 0)
-    Knob.Position = UDim2.new(Percent, 0, 0.5, 0)
+    local Percent = (Value - 50) / 950
+    Fill.Size = UDim2.new(Percent, 0, 1, 0)
+    Knob.Position = UDim2.new(Percent, -7, 0.5, -7)
 end
 
 SpeedBox.FocusLost:Connect(function()
     SetSpeed(SpeedBox.Text)
 end)
 
-local DraggingSlider = false
+local SliderDragging = false
 
-local function UpdateSlider(inputX)
-
-    local X = Slider.AbsolutePosition.X
-    local Width = Slider.AbsoluteSize.X
-
+local function UpdateSlider(X)
     local Percent = math.clamp(
-        (inputX - X) / Width,
+        (X - Slider.AbsolutePosition.X) / Slider.AbsoluteSize.X,
         0,
         1
     )
 
-    local Value = MIN_SPEED + ((MAX_SPEED - MIN_SPEED) * Percent)
-
-    SetSpeed(Value)
+    SetSpeed(50 + (950 * Percent))
 end
 
-Slider.InputBegan:Connect(function(input)
+Slider.InputBegan:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1
+        or Input.UserInputType == Enum.UserInputType.Touch then
 
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-
-        DraggingSlider = true
-        UpdateSlider(input.Position.X)
+        SliderDragging = true
+        UpdateSlider(Input.Position.X)
     end
 end)
 
-Knob.InputBegan:Connect(function(input)
+Knob.InputBegan:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1
+        or Input.UserInputType == Enum.UserInputType.Touch then
 
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-
-        DraggingSlider = true
+        SliderDragging = true
     end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
+UserInputService.InputChanged:Connect(function(Input)
+    if SliderDragging then
+        if Input.UserInputType == Enum.UserInputType.MouseMovement
+            or Input.UserInputType == Enum.UserInputType.Touch then
 
-    if DraggingSlider then
-
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch then
-
-            UpdateSlider(input.Position.X)
+            UpdateSlider(Input.Position.X)
         end
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
+UserInputService.InputEnded:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1
+        or Input.UserInputType == Enum.UserInputType.Touch then
 
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
-
-        DraggingSlider = false
+        SliderDragging = false
     end
 end)
 
---==================================================
--- STOP MOVEMENT
---==================================================
+AreaButton.MouseButton1Click:Connect(function()
+    Dropdown.Visible = not Dropdown.Visible
+end)
 
-local function StopMovement()
-
-    Moving = false
-
+local function StopTween()
     if CurrentTween then
         CurrentTween:Cancel()
         CurrentTween = nil
@@ -556,105 +409,110 @@ local function StopMovement()
         MoveConnection = nil
     end
 
-    Status.Text = "Movimento parado"
-    Status.TextColor3 = Color3.fromRGB(255, 170, 0)
+    if PivotValue then
+        PivotValue:Destroy()
+        PivotValue = nil
+    end
 
+    Moving = false
     GoButton.Text = "GO"
+    Status.Text = "Movimento parado"
+    Status.TextColor3 = Color3.fromRGB(255, 180, 0)
+
+    Notify(
+        "Parado",
+        "O movimento foi interrompido.",
+        "info"
+    )
 end
 
 StopButton.MouseButton1Click:Connect(function()
-    StopMovement()
+    if Moving then
+        StopTween()
+    end
 end)
 
---==================================================
--- SAFE CLIENT MOVEMENT
---==================================================
-
 local function MoveToArea()
-
     if Moving then
         return
     end
 
-    GetCharacter()
+    local Character = Player.Character or Player.CharacterAdded:Wait()
+    local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
 
-    if not Character or not Root or not Root.Parent then
+    if not HumanoidRootPart then
+        Notify(
+            "Erro",
+            "HumanoidRootPart não encontrado.",
+            "info"
+        )
         return
     end
 
-    local Target = Areas[SelectedArea]
+    local Position = Areas[SelectedArea]
 
-    if not Target then
-        Status.Text = "Área inválida"
-        Status.TextColor3 = Color3.fromRGB(255, 70, 70)
+    if not Position then
         return
     end
 
     Moving = true
+    GoButton.Text = "..."
+    Status.Text = "Indo para " .. SelectedArea
+    Status.TextColor3 = Color3.fromRGB(0, 220, 255)
 
-    Dropdown.Visible = false
+    local StartCFrame = Character:GetPivot()
+    local TargetCFrame = CFrame.new(Position)
 
-    Status.Text = "Indo para: " .. SelectedArea
-    Status.TextColor3 = Color3.fromRGB(0, 255, 150)
+    local Distance = (StartCFrame.Position - Position).Magnitude
+    local Duration = math.max(Distance / Speed, 0.05)
 
-    GoButton.Text = "MOVENDO..."
+    PivotValue = Instance.new("CFrameValue")
+    PivotValue.Value = StartCFrame
 
-    local StartPivot = Character:GetPivot()
-
-    local TargetCFrame = CFrame.new(
-        Target + Vector3.new(0, 3, 0)
-    )
-
-    local Distance = (StartPivot.Position - Target).Magnitude
-
-    local Duration = math.max(
-        Distance / Speed,
-        0.05
-    )
-
-    -- CFrameValue é usado em vez de Tweenar
-    -- diretamente o HumanoidRootPart.
-    local PivotValue = Instance.new("CFrameValue")
-    PivotValue.Value = StartPivot
+    MoveConnection = PivotValue:GetPropertyChangedSignal("Value"):Connect(function()
+        if Character and Character.Parent then
+            Character:PivotTo(PivotValue.Value)
+        end
+    end)
 
     CurrentTween = TweenService:Create(
         PivotValue,
         TweenInfo.new(
             Duration,
             Enum.EasingStyle.Linear,
-            Enum.EasingDirection.InOut
+            Enum.EasingDirection.Out
         ),
         {
             Value = TargetCFrame
         }
     )
 
-    MoveConnection = PivotValue.Changed:Connect(function(NewCFrame)
-
-        if Moving and Character and Character.Parent then
-            Character:PivotTo(NewCFrame)
-        end
-    end)
-
-    CurrentTween.Completed:Connect(function(playbackState)
-
+    CurrentTween.Completed:Connect(function(PlaybackState)
         if MoveConnection then
             MoveConnection:Disconnect()
             MoveConnection = nil
         end
 
-        PivotValue:Destroy()
+        if PivotValue then
+            PivotValue:Destroy()
+            PivotValue = nil
+        end
+
         CurrentTween = nil
 
-        if playbackState == Enum.PlaybackState.Completed then
-
+        if PlaybackState == Enum.PlaybackState.Completed then
             if Character and Character.Parent then
                 Character:PivotTo(TargetCFrame)
             end
 
-            Status.Text = "Chegou em: " .. SelectedArea
+            Status.Text = "Chegou em " .. SelectedArea
             Status.TextColor3 = Color3.fromRGB(0, 255, 100)
 
+            Notify(
+                "Chegou!",
+                "Você chegou em " .. SelectedArea .. ".",
+                "success"
+            )
         end
 
         Moving = false
@@ -668,48 +526,32 @@ GoButton.MouseButton1Click:Connect(function()
     MoveToArea()
 end)
 
---==================================================
--- BACK BUTTON
---==================================================
-
 BackButton.MouseButton1Click:Connect(function()
-
     SelectedArea = "Back"
     AreaButton.Text = "Back  ▼"
-
-    Status.Text = "Selecionado: Back"
-    Status.TextColor3 = Color3.fromRGB(0, 220, 255)
-
     MoveToArea()
 end)
-
---==================================================
--- DRAG MAIN WINDOW
---==================================================
 
 local DraggingWindow = false
 local DragStart
 local StartPosition
 
-TitleBar.InputBegan:Connect(function(input)
-
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+TitleBar.InputBegan:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1
+        or Input.UserInputType == Enum.UserInputType.Touch then
 
         DraggingWindow = true
-        DragStart = input.Position
+        DragStart = Input.Position
         StartPosition = Main.Position
     end
 end)
 
-UserInputService.InputChanged:Connect(function(input)
-
+UserInputService.InputChanged:Connect(function(Input)
     if DraggingWindow then
+        if Input.UserInputType == Enum.UserInputType.MouseMovement
+            or Input.UserInputType == Enum.UserInputType.Touch then
 
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch then
-
-            local Delta = input.Position - DragStart
+            local Delta = Input.Position - DragStart
 
             Main.Position = UDim2.new(
                 StartPosition.X.Scale,
@@ -721,18 +563,13 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-
-    if input.UserInputType == Enum.UserInputType.MouseButton1
-        or input.UserInputType == Enum.UserInputType.Touch then
+UserInputService.InputEnded:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1
+        or Input.UserInputType == Enum.UserInputType.Touch then
 
         DraggingWindow = false
     end
 end)
-
---==================================================
--- MINI CIRCLE
---==================================================
 
 local Mini = Instance.new("TextButton")
 Mini.Name = "Mini"
@@ -744,4 +581,73 @@ Mini.Text = "AT"
 Mini.TextColor3 = Color3.fromRGB(0, 220, 255)
 Mini.TextSize = 13
 Mini.Font = Enum.Font.GothamBold
-M
+Mini.BorderSizePixel = 0
+Mini.Visible = false
+Mini.Parent = Gui
+
+local MiniCorner = Instance.new("UICorner")
+MiniCorner.CornerRadius = UDim.new(1, 0)
+MiniCorner.Parent = Mini
+
+local MiniStroke = Instance.new("UIStroke")
+MiniStroke.Color = Color3.fromRGB(0, 220, 255)
+MiniStroke.Thickness = 2
+MiniStroke.Parent = Mini
+
+Minimize.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    Dropdown.Visible = false
+    Mini.Visible = true
+end)
+
+Mini.MouseButton1Click:Connect(function()
+    Main.Visible = true
+    Mini.Visible = false
+end)
+
+local MiniDragging = false
+local MiniDragStart
+local MiniStartPosition
+
+Mini.InputBegan:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1
+        or Input.UserInputType == Enum.UserInputType.Touch then
+
+        MiniDragging = true
+        MiniDragStart = Input.Position
+        MiniStartPosition = Mini.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(Input)
+    if MiniDragging then
+        if Input.UserInputType == Enum.UserInputType.MouseMovement
+            or Input.UserInputType == Enum.UserInputType.Touch then
+
+            local Delta = Input.Position - MiniDragStart
+
+            Mini.Position = UDim2.new(
+                MiniStartPosition.X.Scale,
+                MiniStartPosition.X.Offset + Delta.X,
+                MiniStartPosition.Y.Scale,
+                MiniStartPosition.Y.Offset + Delta.Y
+            )
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(Input)
+    if Input.UserInputType == Enum.UserInputType.MouseButton1
+        or Input.UserInputType == Enum.UserInputType.Touch then
+
+        MiniDragging = false
+    end
+end)
+
+SetSpeed(250)
+
+Notify(
+    "Area Teleport",
+    "Interface carregada com sucesso.",
+    "success"
+)
